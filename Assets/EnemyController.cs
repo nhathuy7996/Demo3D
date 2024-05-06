@@ -4,6 +4,7 @@ using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.AI;
 
+[RequireComponent(typeof(StateManager))]
 public class EnemyController : MonoBehaviour
 {
     [SerializeField] NavMeshAgent agent;
@@ -16,6 +17,9 @@ public class EnemyController : MonoBehaviour
     float timer = 0;
 
     Vector3 _originPosition;
+
+    [SerializeField] StateManager _stateManager; 
+
     // Start is called before the first frame update
     void Start()
     {
@@ -23,49 +27,62 @@ public class EnemyController : MonoBehaviour
         path = new NavMeshPath();
 
         _originPosition = this.transform.position;
-        InvokeRepeating("Patrol", 1,2);
+        _stateManager = GetComponent<StateManager>();
+        _stateManager.ChangeState(new EnemyPatrolState(this));
     }
 
     // Update is called once per frame
-    void Update()
+    public void Update()
     {
-        //Chaser();
-        
+        float distance = Vector3.Distance(_playerTrans.position, this.transform.position);
+        Debug.LogError(distance);
+        _isChase = distance < _range;
+
+        if (_isChase)
+        {
+            _stateManager.ChangeState(new EnemyChaserState(this));
+            timer = 0;
+            return;
+        }
+
+        timer += Time.deltaTime;
+        if(timer < 3)
+            return;
+
+        if (_stateManager.CurrentState != typeof(EnemyPatrolState)) {
+            _stateManager.ChangeState(new EnemyReturnOrigin(this));
+            return;
+        }
+ 
+    }
+
+    public bool isReactTarget()
+    {
+        return Vector3.Distance(this.transform.position, agent.destination) <= 0.5f;
     }
 
 
-    void Patrol()
+    public void Patrol()
     {
         Vector3 pos = this.transform.position + new Vector3( Random.Range(-3,3), 0, Random.Range(-3,3));
         agent.SetDestination(pos);
+        agent.CalculatePath(pos, path);
     }
 
-    void Chaser()
+    public void homeComing()
     {
-        float distance = Vector3.Distance(_playerTrans.position, this.transform.position);
-        _isChase = distance < _range;
+        agent.speed = 2;
+        agent.SetDestination(_originPosition);
+        agent.CalculatePath(_originPosition, path);
+    }
 
-        if (!_isChase)
-        {
-            timer += Time.deltaTime;
-        }
-        else
-            timer = 0;
-
-        if (timer >= 3)
-        {
-            agent.SetDestination(_originPosition);
-            return;
-        }
-
+    public void Chaser()
+    {   
         agent.speed = 10;
         agent.SetDestination(_playerTrans.position);
         agent.CalculatePath(_playerTrans.position, path);
-        if (path.status == NavMeshPathStatus.PathComplete)
-        {
-            return;
-        }
     }
+ 
 
     private void OnDrawGizmos()
     {

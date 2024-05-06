@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -5,7 +6,7 @@ using UnityEngine;
 public class StateManager : MonoBehaviour
 {  
     [SerializeField] IState _currentState;
-     
+     public Type CurrentState=> _currentState.GetType();
     public void ChangeState(IState state)
     {
 
